@@ -13,8 +13,8 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.1.9
-// 2fbee84e70c686a6565397f739b57bb2d0b8a7b8
+// Version 0.2.1
+// old 2fbee84e70c686a6565397f739b57bb2d0b8a7b8
 
 #include "xlong_obj.h"
 
@@ -25,7 +25,7 @@
  This function allocates memory for the structure and "_size" cells to store it.
  returns a pointer to the allocated memory or NULL in case of an error
  */
-xln* xln_alloc(uint32_t size){
+xln* xln_alloc(uint64_t size){
     if(size == 0){
         error("ATTEMPT_TO_ALLOCATE_ZERO_BYTES", -3);
         return NULL;
@@ -67,7 +67,7 @@ xln* xln_realloc(xln* obj, uint32_t new_size){
  */
 void xln_free(xln* obj){
     if(obj != NULL){
-//        free(obj->_mem);
+        free(obj->_mem);
         free(obj);
     }
     else {
@@ -104,13 +104,14 @@ xln* xln_convert(xln* obj, uint64_t a[], uint32_t n){
     if(obj != NULL && a != NULL){
         uint64_t current = 0;
         uint64_t carry = 0;
+        int32_t i;
 #       define pre_base 1000000000
-        obj->_current = 0;
-        for(int32_t i = 0; i < n; ++i){
+        obj->_current = 1;
+        for(i = 0; i < n; ++i){
             carry = 0;
             for(int32_t j = n-1; j >= 0; --j){
                 //printf("in f a j = %llu\n", a[j]);
-                current = a[j] + carry*pre_base;
+                current = a[j] + (carry*pre_base);
                 a[j] = current >> _XLN_SHIFT;
                 carry = (current % (_XLN_BASE));
             }
@@ -130,18 +131,19 @@ xln* xln_convert_reverse(xln* obj){
     if(obj != NULL){
         uint64_t current = 0;
         uint64_t carry = 0;
-        uint32_t n = obj->_current;
+        uint64_t n = obj->_current;
         uint64_t a[n];
+        int32_t i;
         //memcpy(a, obj->_mem, sizeof(obj->_mem));
         for(int i = 0; i < n; ++i){
             a[i] = obj->_mem[i];
             //printf("a= %llu\n", i);
         }
 #       define pre_base 1000000000
-        obj->_current = 0;
-        for(int32_t i = 0; i <= n; ++i){
+        obj->_current = 1;
+        for(i = 0; i <= n; ++i){
             carry = 0;
-            for(int32_t j = n-1; j >= 0; --j){
+            for(int64_t j = n-1; j >= 0; --j){
                 current = a[j] + (carry<<30);
                 a[j] = (uint64_t)(current / pre_base);
                 carry = (current % (pre_base));
@@ -149,7 +151,7 @@ xln* xln_convert_reverse(xln* obj){
             obj->_mem[i] = (uint32_t)carry;
             obj->_current += 1;
         }
-
+        
         xln_normalize(obj);
         return obj;
     }
@@ -170,11 +172,8 @@ xln* xln_init_string(xln* obj, const char* str){
         uint64_t a[(size_str) + 1];
         char tmp[(size_str)];
         
-        for (int k = 0; k < size_str; ++k) {
-            tmp[k] = *(str + k);
-        }
-        
-        for(int32_t i = (int32_t)(size_str); i > 0; i -= 9, ++j){
+        memmove(tmp, str, strlen(str)*sizeof(char));
+        for(int64_t i = (int64_t)(size_str); i > 0; i -= 9, ++j){
             //memcpy(&tmp, i >= 9 ? (str + i - 9) : str, 9*sizeof(char));
             
             tmp[i] = '\0';
@@ -443,7 +442,7 @@ xln* xln_smul(xln* result, xln* left, xln* right){
         }
     
         result->_current = left->_current*right->_current;
-        return result;
+        return xln_normalize(result);
     }
     else{
         error("ATANE\n", -4);
@@ -484,13 +483,13 @@ xln* xln_sdiv_int(xln* result, xln* left, uint32_t right){
         }
         
         uint32_t carry = 0;
-        uint32_t current;
+        uint64_t current;
         for(int32_t i = (int32_t)left->_current-1; i >= 0; --i){
-            current = left->_mem[i] + (carry<<30);
-            result->_mem[i] = current / right;
-            carry = current % (right);
+            current = left->_mem[i] + (carry*1ll<<_XLN_SHIFT);
+            result->_mem[i] = (uint32_t)(current / right);
+            carry = current % right;
         }
-        result->_current = left->_current - 1;
+        result->_current = left->_current;
         
         xln_normalize(result);
         return result;
@@ -498,6 +497,27 @@ xln* xln_sdiv_int(xln* result, xln* left, uint32_t right){
     else{
         error("ATANE\n", -4);
         return NULL;
+    }
+}
+
+/*
+ slow mod by right < base
+ */
+uint32_t xln_smod_int(xln* left, uint32_t right){
+    if(left != NULL){
+ 
+        uint32_t carry = 0;
+        uint64_t current;
+        for(int32_t i = (int32_t)left->_current-1; i >= 0; --i){
+            current = left->_mem[i] + (carry*1ll <<_XLN_SHIFT);
+            carry = current % (right);
+        }
+
+        return carry;
+    }
+    else{
+        error("ATANE\n", -4);
+        return 0;
     }
 }
 
@@ -524,8 +544,8 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
         bl = (uint32_t*)malloc(sizeof(uint32_t)*left->_current);
         br = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
         
-        memcpy(bl, left->_mem, left->_current*sizeof(uint64_t));
-        memcpy(br, right->_mem, right->_current*sizeof(uint64_t));
+        memcpy(bl, left->_mem, left->_current*sizeof(uint32_t));
+        memcpy(br, right->_mem, right->_current*sizeof(uint32_t));
  
         m = left->_current - right->_current - 1;
         n = right->_current;
@@ -643,14 +663,15 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
         }
         
         // Return the original values. And normalize the answer.
-        left->_mem = bl;
-        right->_mem = br;
-        result->_current = m+n;
-        
+        memmove(left->_mem, bl, sizeof(bl)*sizeof(uint32_t));
+        memmove(right->_mem, br, sizeof(bl)*sizeof(uint32_t));
+
+        // Free tmp memory
         free(tr);
-        free(bl);
         free(br);
+        free(bl);
         
+        result->_current = m;
         return xln_normalize(result);
     }
     else{
@@ -667,7 +688,156 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
  */
 xln* xln_smod(xln* result, xln* left, xln* right){
     if(left != NULL && right != NULL){
+        /*
+         Create the necessary variables. Allocate memory to back up the original numbers, because they will change in the process.
+         */
         
+        int64_t carry = 0;
+        uint64_t current, d, q, r;
+        int32_t i, j, m, n, k;
+        uint32_t *tr, *bl, *br;
+        
+        tr = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+        bl = (uint32_t*)malloc(sizeof(uint32_t)*left->_current);
+        br = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+        
+        memcpy(bl, left->_mem, left->_current*sizeof(uint32_t));
+        memcpy(br, right->_mem, right->_current*sizeof(uint32_t));
+ 
+        m = left->_current - right->_current - 1;
+        n = right->_current;
+        d = (_XLN_BASE)/(1+right->_mem[n-1]);
+        
+        if(right->_mem[n-1] < (_XLN_BASE/2)){
+                        
+            carry = 0;
+            for(j = 0; j < left->_current; ++j){
+                current = (left->_mem[j]*1ull*d) + carry;
+                left->_mem[j] = current & _XLN_MASK;
+                carry = current >> _XLN_SHIFT;
+            }
+            left->_mem[j] = (uint32_t)carry;
+            ++left->_current;
+            
+            carry = 0;
+            for(j = 0; j < right->_current; ++j){
+                current = (right->_mem[j]*1ull*d) + carry;
+                right->_mem[j] = current & _XLN_MASK;
+                carry = current >> _XLN_SHIFT;
+            }
+            if(carry != 0){
+                right->_mem[j] = (uint32_t)carry;
+                right->_current += 1;
+            }
+            
+            m = left->_current - right->_current - 1;
+            n = right->_current;
+        }
+        
+        // "Slide" over the divisor and divide it
+        for(j = m; j >= 0; --j){
+            // Calculate the approximate values of the quotient and the remainder.
+            q = (((uint64_t)left->_mem[j+n]<<_XLN_SHIFT) + left->_mem[j+n-1])/(right->_mem[n-1]);
+            r = (((uint64_t)left->_mem[j+n]<<_XLN_SHIFT) + left->_mem[j+n-1])%(right->_mem[n-1]);
+ 
+            // If the condition is satisfied, then q is greater than true. Reduce it by one.
+            // And repeat the test if the remainder is less than the base of the system.
+            if(q*right->_mem[n-2] > (r<<_XLN_SHIFT) + left->_mem[j+n-2]){
+                --q;
+                r += right->_mem[n-1];
+                if((r < _XLN_BASE) && (q*right->_mem[n-2] > (r<<_XLN_SHIFT) + left->_mem[j+n-2])){
+                    --q;
+                }
+            }
+
+            // Create back up the divisor. Сalculate l - q*r
+            memcpy(tr, right->_mem, right->_current*sizeof(uint32_t));
+
+            // Calculate q*r
+            //xln_smul_int(right, right, q);
+            carry = 0;
+            for(i = 0; i < n; ++i){
+                current = (right->_mem[i]*1ull*q) + carry;
+                right->_mem[i] = current & _XLN_MASK;
+                carry = current >> _XLN_SHIFT;
+            }
+        
+            right->_mem[i] = (uint32_t)carry;
+            right->_current = i;
+
+            // Check for positive l-r. If any digit is negative, then q is too high. As a result we leave l + base^(n+1);
+            // Keep the sign in the variable left->_sign
+            for(i = n-1, k = j+n; i >= 0 && k >= j; --i, --k){
+                //printf("k=%d, i=%d\n", k, i);
+                if(left->_mem[k] - right->_mem[i] < 0){
+                    left->_sign = -1;
+                    left->_mem[n+1] = 1;
+                    
+                    memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+                    break;
+                }
+            }
+            
+            // If the sign is positive, then subtract the numbers.
+            if(left->_sign == 1){
+
+                uint32_t cur;
+                carry = 0;
+                for(i = 0, k = j; i <= n && k <= j+n; ++i, ++k){
+                    cur = ((uint32_t)left->_mem[k] - (uint32_t)right->_mem[i] - (uint32_t)carry);
+                    left->_mem[k] = cur & _XLN_MASK;
+                    carry = (cur >> _XLN_SHIFT) & 1;
+                }
+                
+                for(;k<=j+n; ++k){
+                    cur = ((uint32_t)left->_mem[k] - (uint32_t)carry);
+                    left->_mem[k] = cur & _XLN_MASK;
+                    carry = (cur >> _XLN_SHIFT) & 1;
+                }
+                
+                
+            }
+            
+            // return true value in right.
+            memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+            
+            // Assign the found value.
+            result->_mem[j] = (uint32_t)q;
+            
+            // If the sign is negative, we must compensate for the addition. Decrease the found value by one.
+            
+            if(left->_sign == -1){
+                //xln_sum(left, left, right);
+                error("warning sign = -1\n", 1);
+                result->_mem[j] -= 1;
+                carry = 0;
+                for(i = 0, k = j; i < n && k <= j+n; ++i, ++k){
+                    carry = left->_mem[k] + right->_mem[i] + carry;
+                    left->_mem[k] = carry & _XLN_MASK;
+                    carry = (uint64_t)carry / (1<<30);
+                }
+                for(;k <= j+n; ++i, ++k){
+                    carry = left->_mem[k] + carry;
+                    left->_mem[k] = carry & _XLN_MASK;
+                    carry = (uint64_t)carry / (1<<30);
+                }
+                left->_sign = 1;
+            }
+            
+        }
+        
+        //carry
+        xln_normalize(left);
+        xln_sdiv_int(result, left, (uint32_t)d);
+
+        // Return the original values. And normalize the answer.
+        memmove(left->_mem, bl, sizeof(bl)*sizeof(uint32_t));
+        memmove(right->_mem, br, sizeof(bl)*sizeof(uint32_t));
+
+        // Free tmp memory
+        free(tr);
+        free(br);
+        free(bl);
         
         return result;
     }
@@ -808,12 +978,14 @@ lnbool xln_less(xln* left, xln* right){
 //----------------------------------------------------------------------------------------
 
 void test_sum(void){
-    xln* obj = xln_alloc(25);
-    xln* obj2 = xln_alloc(25);
-    xln* res = xln_alloc(25);
-    xln_init_string(obj,  "12379400381324587724312379400");
-    xln_init_string(obj2, "12379400381324587724312379400");
-    xln_sum(res, obj, obj2);
+    xln* obj = xln_alloc(200);
+    xln* obj2 = xln_alloc(200);
+    xln* res = xln_alloc(4000);
+    xln_init_string(obj,  xln_2_4096);
+
+    xln_init_string(obj2, xln_2_4096);
+    xln_smul(res, obj, obj2);
+
     xln_convert_reverse(res);
     xln_printr(res);
     
@@ -837,4 +1009,5 @@ void test(void){
 //}
 
 //----------------------------------------------------------------------------------------
+
 
