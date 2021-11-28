@@ -13,8 +13,8 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.2.1
-// old 2fbee84e70c686a6565397f739b57bb2d0b8a7b8
+// Version 0.2.6
+// old 8991778aa03f2e429ecd6ec91594864ebaf42bbb
 
 #ifndef __XLONG_OBJECT_H__
 #define __XLONG_OBJECT_H__

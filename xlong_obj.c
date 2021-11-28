@@ -13,8 +13,8 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.2.1
-// old 2fbee84e70c686a6565397f739b57bb2d0b8a7b8
+// Version 0.2.6
+// old 8991778aa03f2e429ecd6ec91594864ebaf42bbb
 
 #include "xlong_obj.h"
 
@@ -118,6 +118,8 @@ xln* xln_convert(xln* obj, uint64_t a[], uint32_t n){
             obj->_mem[i] = (uint32_t)carry;
             obj->_current += 1;
         }
+        printf("ccarry=%llu\n", carry);
+        obj->_current += 1;
         xln_normalize(obj);
         return obj;
     }
@@ -131,7 +133,7 @@ xln* xln_convert_reverse(xln* obj){
     if(obj != NULL){
         uint64_t current = 0;
         uint64_t carry = 0;
-        uint64_t n = obj->_current;
+        uint64_t n = obj->_current+1;
         uint64_t a[n];
         int32_t i;
         //memcpy(a, obj->_mem, sizeof(obj->_mem));
@@ -151,7 +153,7 @@ xln* xln_convert_reverse(xln* obj){
             obj->_mem[i] = (uint32_t)carry;
             obj->_current += 1;
         }
-        
+        printf("rcarry=%llu\n", carry);
         xln_normalize(obj);
         return obj;
     }
@@ -169,7 +171,7 @@ xln* xln_init_string(xln* obj, const char* str){
     if(str != NULL && obj != NULL){
         uint32_t size_str = (uint32_t)(strlen(str));
         int32_t j = 0;
-        uint64_t a[(size_str) + 1];
+        uint64_t a[size_str];
         char tmp[(size_str)];
         
         memmove(tmp, str, strlen(str)*sizeof(char));
@@ -418,7 +420,7 @@ xln* xln_smul_int(xln* result, xln* left, uint32_t right){
  */
 xln* xln_smul(xln* result, xln* left, xln* right){
     if(left != NULL && right != NULL){
-        uint64_t max_size = (left->_current * right->_current);
+        uint32_t max_size = (left->_current + right->_current + 0x1);
         if(result == NULL){
             result = xln_alloc((uint32_t)max_size);
             return xln_smul(result, left, right);
@@ -441,7 +443,7 @@ xln* xln_smul(xln* result, xln* left, xln* right){
             result->_mem[i+j] = (uint32_t)carry;
         }
     
-        result->_current = left->_current*right->_current;
+        result->_current = max_size;
         return xln_normalize(result);
     }
     else{
@@ -978,16 +980,34 @@ lnbool xln_less(xln* left, xln* right){
 //----------------------------------------------------------------------------------------
 
 void test_sum(void){
-    xln* obj = xln_alloc(200);
-    xln* obj2 = xln_alloc(200);
-    xln* res = xln_alloc(4000);
-    xln_init_string(obj,  xln_2_4096);
+    xln* obj = xln_alloc(20);
+        xln* obj2 = xln_alloc(20);
+        xln* res = xln_alloc(40);
+        xln_init_string(obj,  "12379400381237940038132458772439760897132458772439760897");
 
-    xln_init_string(obj2, xln_2_4096);
+        xln_init_string(obj2, "3813245877243");
+        xln_smul(res, obj, obj2);
+
+        xln_convert_reverse(res);
+        xln_printr(res);
+        
+        xln_free(obj);
+        xln_free(obj2);
+        xln_free(res);
+    xln_free(res);
+}
+
+void test_large_number(void){
+    xln* obj = xln_alloc(600);
+    xln* obj2 = xln_alloc(600);
+    xln* res = xln_alloc(1200);
+    xln_init_string(obj,  xln_2_16384);
+    printf("%d\n", obj->_current);
+    xln_init_string(obj2, xln_2_16384);
     xln_smul(res, obj, obj2);
-
-    xln_convert_reverse(res);
-    xln_printr(res);
+    printf("%u\n", xln_smod_int(res, 1073676287));
+    //xln_convert_reverse(obj);
+    //xln_printr(obj);
     
     xln_free(obj);
     xln_free(obj2);
@@ -1004,7 +1024,7 @@ void test(void){
 }
 
 //int main(void){
-//    test_sum();
+//    test_large_number();
 //    return 0;
 //}
 
