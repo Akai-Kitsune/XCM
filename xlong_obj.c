@@ -76,6 +76,10 @@ void xln_free(xln* obj){
     }
 }
 
+/*
+ The function takes two pointers to numbers with multiple precision, the first pointer to where we copy, the second to what we copy.
+ If the right pointer is NULL, the function will null the left pointer as well.
+ */
 void xln_copy(xln* left, xln* right){
     if(left != NULL && right != NULL){
         left->_current = right->_current; left->_sign = right->_sign;
@@ -87,7 +91,7 @@ void xln_copy(xln* left, xln* right){
         memmove(left->_mem, right->_mem, right->_size*sizeof(uint32_t));
     }
     else{
-        
+        left = NULL;
     }
 }
 
@@ -929,6 +933,21 @@ uint32_t xln_gcdInt(xln*left, uint32_t right){
 }
 
 /*
+ Function for finding the greatest common divisor of two numbers when the right number is less than the base of the system and two numbers such that left*x + right*y = gcd(left, right)
+ */
+void** xln_egcdInt(xln*left, uint32_t right){
+    if(left != NULL){
+        //Next
+        
+        return NULL;
+    }
+    else {
+        error("ATANE", -4);
+        return NULL;
+    }
+}
+
+/*
  Extended_enclidean_algoritm
  */
 xln* xln_gcd(xln* res, xln*left, xln* right){
@@ -1155,10 +1174,6 @@ void test(void){
     xln_free(obj);
 }
 
-int main(void){
-    test_gcd();
-    return 0;
-}
 
 //----------------------------------------------------------------------------------------
 
