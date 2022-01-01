@@ -13,8 +13,9 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.2.6
-// old 8991778aa03f2e429ecd6ec91594864ebaf42bbb
+// Version 0.3.0
+
+// last version id = 8991778aa03f2e429ecd6ec91594864ebaf42bbb
 
 #include "xlong_obj.h"
 
@@ -25,7 +26,7 @@
  This function allocates memory for the structure and "_size" cells to store it.
  returns a pointer to the allocated memory or NULL in case of an error
  */
-xln* xln_alloc(uint64_t size){
+xln* xln_alloc(uint32_t size){
     if(size == 0){
         error("ATTEMPT_TO_ALLOCATE_ZERO_BYTES", -3);
         return NULL;
@@ -38,7 +39,7 @@ xln* xln_alloc(uint64_t size){
         obj->_sign = 1;
         obj->_current = 0;
         
-        // We need it?
+        // fill the number with zeros.
         while(size > 0){
             obj->_mem[size-1] = 0;
             --size;
@@ -53,7 +54,7 @@ xln* xln_alloc(uint64_t size){
  */
 xln* xln_realloc(xln* obj, uint32_t new_size){
     if(obj != NULL){
-        obj->_mem = realloc(obj->_mem, new_size);
+        obj->_mem = realloc(obj->_mem, new_size*sizeof(uint32_t));
         return obj;
     }
     else{
@@ -66,12 +67,27 @@ xln* xln_realloc(xln* obj, uint32_t new_size){
  This function frees the previously allocated memory for the object
  */
 void xln_free(xln* obj){
-    if(obj != NULL){
+    if(obj != NULL && obj->_mem != NULL){
         free(obj->_mem);
         free(obj);
     }
     else {
         error("EATANE", -4);
+    }
+}
+
+void xln_copy(xln* left, xln* right){
+    if(left != NULL && right != NULL){
+        left->_current = right->_current; left->_sign = right->_sign;
+        
+        if(left->_size < right->_size){
+            left = xln_realloc(left, right->_size);
+        }
+        
+        memmove(left->_mem, right->_mem, right->_size*sizeof(uint32_t));
+    }
+    else{
+        
     }
 }
 
@@ -110,7 +126,6 @@ xln* xln_convert(xln* obj, uint64_t a[], uint32_t n){
         for(i = 0; i < n; ++i){
             carry = 0;
             for(int32_t j = n-1; j >= 0; --j){
-                //printf("in f a j = %llu\n", a[j]);
                 current = a[j] + (carry*pre_base);
                 a[j] = current >> _XLN_SHIFT;
                 carry = (current % (_XLN_BASE));
@@ -118,7 +133,6 @@ xln* xln_convert(xln* obj, uint64_t a[], uint32_t n){
             obj->_mem[i] = (uint32_t)carry;
             obj->_current += 1;
         }
-        printf("ccarry=%llu\n", carry);
         obj->_current += 1;
         xln_normalize(obj);
         return obj;
@@ -133,7 +147,8 @@ xln* xln_convert_reverse(xln* obj){
     if(obj != NULL){
         uint64_t current = 0;
         uint64_t carry = 0;
-        uint64_t n = obj->_current+1;
+        // n = obj->_current + 1
+        uint64_t n = obj->_current;
         uint64_t a[n];
         int32_t i;
         //memcpy(a, obj->_mem, sizeof(obj->_mem));
@@ -143,7 +158,8 @@ xln* xln_convert_reverse(xln* obj){
         }
 #       define pre_base 1000000000
         obj->_current = 1;
-        for(i = 0; i <= n; ++i){
+        // i <= n
+        for(i = 0; i < n; ++i){
             carry = 0;
             for(int64_t j = n-1; j >= 0; --j){
                 current = a[j] + (carry<<30);
@@ -153,7 +169,6 @@ xln* xln_convert_reverse(xln* obj){
             obj->_mem[i] = (uint32_t)carry;
             obj->_current += 1;
         }
-        printf("rcarry=%llu\n", carry);
         xln_normalize(obj);
         return obj;
     }
@@ -478,6 +493,11 @@ xln* xln_mul(xln* result, xln* left, xln* right){
  */
 xln* xln_sdiv_int(xln* result, xln* left, uint32_t right){
     if(left != NULL){
+        
+        if(right == 0){
+            return result;
+        }
+        
         if(result == NULL){
             static xln* res;
             res = xln_alloc(left->_current);
@@ -508,6 +528,10 @@ xln* xln_sdiv_int(xln* result, xln* left, uint32_t right){
 uint32_t xln_smod_int(xln* left, uint32_t right){
     if(left != NULL){
  
+        if(right == 0){
+            return 0;
+        }
+        
         uint32_t carry = 0;
         uint64_t current;
         for(int32_t i = (int32_t)left->_current-1; i >= 0; --i){
@@ -533,6 +557,17 @@ uint32_t xln_smod_int(xln* left, uint32_t right){
  */
 xln* xln_sdiv(xln* result, xln *left, xln *right){
     if(left != NULL && right != NULL){
+        
+        if(right->_current == 1){
+            if(right->_mem[0] == 0){
+                error("div by zero", -7);
+                return NULL;
+            }
+            else{
+                return xln_sdiv_int(result, left, right->_mem[0]);
+            }
+        }
+            
         /*
          Create the necessary variables. Allocate memory to back up the original numbers, because they will change in the process.
          */
@@ -540,14 +575,18 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
         int64_t carry = 0;
         uint64_t current, d, q, r;
         int32_t i, j, m, n, k;
-        uint32_t *tr, *bl, *br;
+        xln* tr = xln_alloc(right->_size), *bl = xln_alloc(left->_size), *br = xln_alloc(right->_size);
         
-        tr = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
-        bl = (uint32_t*)malloc(sizeof(uint32_t)*left->_current);
-        br = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+        xln_copy(tr, right); xln_copy(bl, left); xln_copy(br, right);
         
-        memcpy(bl, left->_mem, left->_current*sizeof(uint32_t));
-        memcpy(br, right->_mem, right->_current*sizeof(uint32_t));
+//        uint32_t *tr, *bl, *br;
+//
+//        tr = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+//        bl = (uint32_t*)malloc(sizeof(uint32_t)*left->_current);
+//        br = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+//
+//        memcpy(bl, left->_mem, left->_current*sizeof(uint32_t));
+//        memcpy(br, right->_mem, right->_current*sizeof(uint32_t));
  
         m = left->_current - right->_current - 1;
         n = right->_current;
@@ -592,7 +631,8 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
             }
 
             // Create back up the divisor. Сalculate l - q*r
-            memcpy(tr, right->_mem, right->_current*sizeof(uint32_t));
+            //memcpy(tr, right->_mem, right->_current*sizeof(uint32_t));
+            xln_copy(tr, right);
 
             // Calculate q*r
             //xln_smul_int(right, right, q);
@@ -614,7 +654,8 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
                     left->_sign = -1;
                     left->_mem[n+1] += 1;
                     
-                    memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+                    //memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+                    xln_copy(right, tr);
                     break;
                 }
             }
@@ -640,7 +681,8 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
             }
             
             // return true value in right.
-            memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+            //memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+            xln_copy(right, tr);
             
             // Assign the found value.
             result->_mem[j] = (uint32_t)q;
@@ -665,15 +707,13 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
         }
         
         // Return the original values. And normalize the answer.
-        memmove(left->_mem, bl, sizeof(bl)*sizeof(uint32_t));
-        memmove(right->_mem, br, sizeof(bl)*sizeof(uint32_t));
+        xln_copy(left, bl);
+        xln_copy(right, br);
 
         // Free tmp memory
-        free(tr);
-        free(br);
-        free(bl);
+        xln_free(tr); xln_free(bl); xln_free(br);
         
-        result->_current = m;
+        result->_current = n+m;
         return xln_normalize(result);
     }
     else{
@@ -690,6 +730,13 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
  */
 xln* xln_smod(xln* result, xln* left, xln* right){
     if(left != NULL && right != NULL){
+        
+        if(right->_current == 1){
+            result->_current = 1;
+            *(result->_mem) = xln_smod_int(left, *(right->_mem));
+            return result;
+        }
+        
         /*
          Create the necessary variables. Allocate memory to back up the original numbers, because they will change in the process.
          */
@@ -697,19 +744,21 @@ xln* xln_smod(xln* result, xln* left, xln* right){
         int64_t carry = 0;
         uint64_t current, d, q, r;
         int32_t i, j, m, n, k;
-        uint32_t *tr, *bl, *br;
+        //uint32_t *tr, *bl, *br;
+        xln* tr = xln_alloc(right->_size), *bl = xln_alloc(left->_size), *br = xln_alloc(right->_size);
         
-        tr = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
-        bl = (uint32_t*)malloc(sizeof(uint32_t)*left->_current);
-        br = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
-        
-        memcpy(bl, left->_mem, left->_current*sizeof(uint32_t));
-        memcpy(br, right->_mem, right->_current*sizeof(uint32_t));
+//        tr = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+//        bl = (uint32_t*)malloc(sizeof(uint32_t)*left->_current);
+//        br = (uint32_t*)malloc(sizeof(uint32_t)*right->_current);
+//        memcpy(bl, left->_mem, left->_size*sizeof(uint32_t));
+//        memcpy(br, right->_mem, right->_size*sizeof(uint32_t));
  
+        xln_copy(tr, right); xln_copy(bl, left); xln_copy(br, right);
+        
         m = left->_current - right->_current - 1;
         n = right->_current;
         d = (_XLN_BASE)/(1+right->_mem[n-1]);
-        
+    
         if(right->_mem[n-1] < (_XLN_BASE/2)){
                         
             carry = 0;
@@ -753,7 +802,8 @@ xln* xln_smod(xln* result, xln* left, xln* right){
             }
 
             // Create back up the divisor. Сalculate l - q*r
-            memcpy(tr, right->_mem, right->_current*sizeof(uint32_t));
+            //memcpy(tr, right->_mem, right->_current*sizeof(uint32_t));
+            xln_copy(tr, right);
 
             // Calculate q*r
             //xln_smul_int(right, right, q);
@@ -775,7 +825,8 @@ xln* xln_smod(xln* result, xln* left, xln* right){
                     left->_sign = -1;
                     left->_mem[n+1] = 1;
                     
-                    memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+                    //memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+                    xln_copy(right, tr);
                     break;
                 }
             }
@@ -801,7 +852,8 @@ xln* xln_smod(xln* result, xln* left, xln* right){
             }
             
             // return true value in right.
-            memcpy(right->_mem, tr, right->_current*sizeof(uint32_t));
+            //memcpy(right->_mem, tr, right->_size*sizeof(uint32_t));
+            xln_copy(right, tr);
             
             // Assign the found value.
             result->_mem[j] = (uint32_t)q;
@@ -830,20 +882,91 @@ xln* xln_smod(xln* result, xln* left, xln* right){
         
         //carry
         xln_normalize(left);
+
         xln_sdiv_int(result, left, (uint32_t)d);
 
-        // Return the original values. And normalize the answer.
-        memmove(left->_mem, bl, sizeof(bl)*sizeof(uint32_t));
-        memmove(right->_mem, br, sizeof(bl)*sizeof(uint32_t));
+//      Return the original values. And normalize the answer.
+//      memmove(left->_mem, bl, left->_size*sizeof(uint32_t));
+//      memmove(right->_mem, br, right->_size*sizeof(uint32_t));
+        xln_copy(left, bl);
+        xln_copy(right, br);
 
         // Free tmp memory
-        free(tr);
-        free(br);
-        free(bl);
+        xln_free(tr); xln_free(bl); xln_free(br);
         
-        return result;
+        return xln_normalize(result);
     }
     else{
+        error("ATANE", -4);
+        return NULL;
+    }
+}
+
+/*
+ Extended_enclidean_algoritm for right < base
+ */
+uint32_t xln_gcdInt(xln*left, uint32_t right){
+    if(left != NULL){
+        
+        if(right == 0){
+            return 0;
+        }
+        
+        uint32_t t = xln_smod_int(left, right), c;
+        
+        while(t != 0){
+            c = t;
+            t = right % t;
+            right = c;
+        }
+        
+        return right;
+    }
+    else {
+        error("ATANE", -4);
+        return 0;
+    }
+}
+
+/*
+ Extended_enclidean_algoritm
+ */
+xln* xln_gcd(xln* res, xln*left, xln* right){
+    if(left != NULL && right != NULL && res != NULL){
+        
+        // If right == 0, return left.
+        if(right->_current == 1 && right->_mem[0] == 0){
+            xln_copy(res, left);
+            return res;
+        } // If right == 1, return 1.
+        else if(right->_current == 1 && right->_mem[0] == 0){
+            res->_current = 1;
+            res->_mem[0] = 1;
+            return res;
+        }
+
+        // Create copies of the numbers to work with them without change.
+        xln *t = xln_alloc(left->_size), *r = xln_alloc(right->_size);
+        xln_copy(r, right);
+        
+        //Zero iteration to get rid of the case where left = k*right
+        xln_smod(t, left, r);
+        
+        //The basic loop, is a modification of the gcd algorithm for numbers of multiple precision.
+        while(t->_current >= 1 && t->_mem[0] != 0){
+            xln_copy(res, t);
+            xln_smod(t, r, res);
+            xln_copy(r, res);
+        }
+
+        xln_copy(res, r);
+        
+        xln_free(t); xln_free(r);
+        
+        return res;
+    
+    }
+    else {
         error("ATANE", -4);
         return NULL;
     }
@@ -979,21 +1102,30 @@ lnbool xln_less(xln* left, xln* right){
 // TEST
 //----------------------------------------------------------------------------------------
 
-void test_sum(void){
-    xln* obj = xln_alloc(20);
-        xln* obj2 = xln_alloc(20);
-        xln* res = xln_alloc(40);
-        xln_init_string(obj,  "12379400381237940038132458772439760897132458772439760897");
+void test_gcdInt(void){
+    xln* obj = xln_alloc(10);
+    xln_init_string(obj,  "1329227995784915872903807060280344576");
 
-        xln_init_string(obj2, "3813245877243");
-        xln_smul(res, obj, obj2);
+    printf("gcd = %u\n", xln_gcdInt(obj, 12));
+    
+    xln_free(obj);
+}
 
-        xln_convert_reverse(res);
-        xln_printr(res);
-        
-        xln_free(obj);
-        xln_free(obj2);
-        xln_free(res);
+void test_gcd(void){
+    xln* obj = xln_alloc(30);
+    xln* obj2 = xln_alloc(30);
+    xln* res = xln_alloc(61);
+    xln_init_string(obj,  "9085729004256841718308438420015608007687001344443112760818356862794610647930864113878808725615792656835384509495872239647213856410356729267494460946312905410849");
+
+
+
+    xln_init_string(obj2, "1108899372780783641306111715875094966436017167649879524402769841278887580501366697712424694256005093589248451503068397608001");
+    xln_gcd(res, obj, obj2);
+    xln_convert_reverse(res);
+    xln_printr(res);
+    
+    xln_free(obj);
+    xln_free(obj2);
     xln_free(res);
 }
 
@@ -1023,10 +1155,10 @@ void test(void){
     xln_free(obj);
 }
 
-//int main(void){
-//    test_large_number();
-//    return 0;
-//}
+int main(void){
+    test_gcd();
+    return 0;
+}
 
 //----------------------------------------------------------------------------------------
 
