@@ -35,10 +35,11 @@
 #define LN_FALSE 0x0
 // A type for bool
 #define lnbool int8_t
-// For syntaxis
-#define xln xln
+
 // Flag to connect raw libraries in a standard way.
 #define __XLN_INCLUDE_DEFOLT_LIB
+// Flag to connect kVectors
+#define __XLN_INCLUDE_VECTORS
 // Flag to enable the error output function.
 #define _XLN_PRINT_ERROR
 // Flag to enable your own processing core.
@@ -82,6 +83,7 @@
 #   include <stdint.h>
     // For string, memcpy, memmove.
 #   include <string.h>
+#   include "include/Vectors.h"
 #   ifdef _XLN_INCLUDE_ERRNO
         // For math function
 #       include <math.h>
@@ -90,9 +92,13 @@
 #   include "kernel.h"
 #   endif
 
+#ifdef __XLN_INCLUDE_VECTORS
+
 #endif
 
-/*
+#endif
+
+/**
  Our integer is stored in a structure with "size" fields to indicate the allocated memory.
  "_сurrent" to indicate the last occupied cell. And "_mem" to store the digits of the number in
  the number system modulo 2^32.
@@ -104,7 +110,7 @@ typedef struct xlong_number{
     uint32_t* _mem;
 }xln;
 
-/*
+/**
  This is a tuple of data for storing various objects and passing them around. The "_mem"
  stores pointers to pointers to the object.
  */
@@ -115,7 +121,7 @@ typedef struct ln_tuple{
 // MEMORY
 //----------------------------------------------------------------------------------------
 
-/*
+/**
  This function allocates memory for the structure and "_size" cells to store it.
  returns a pointer to the allocated memory or NULL in case of an error
  */
@@ -126,6 +132,12 @@ xln* xln_alloc(uint32_t size);
  returns a pointer to the allocated memory or NULL in case of an error
  */
 xln* xln_realloc(xln* obj, uint32_t new_size);
+
+/**
+ The function takes two pointers to numbers with multiple precision, the first pointer to where we copy, the second to what we copy.
+ If the right pointer is NULL, the function will null the left pointer as well.
+ */
+void xln_copy(xln* left, xln* right);
 
 /*
  This function frees the previously allocated memory for the object
@@ -274,6 +286,11 @@ xln* xln_smod(xln* result, xln* left, xln* right);
  Algorithm for finding the greatest common divisor of two numbers when the right-hand one is less than the base of the system.
  */
 uint32_t xln_gcdInt(xln*left, uint32_t right);
+
+/**
+ Function for finding the greatest common divisor of two numbers when the right number is less than the base of the system and two numbers such that left*x + right*y = gcd(left, right)
+ */
+void** xln_egcdInt(xln*left, uint32_t right);
 
 /**
  Algorithm for finding the greatest common divisor of two numbers, for two numbers of multiple precision.
