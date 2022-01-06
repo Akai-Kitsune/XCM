@@ -8,6 +8,10 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the KI General Public License version for
 */
 //----------------------------------------------------------------------------------------------------
 
+
+/**
+ Metacode for C polymorphism implementation for working with data vectors and tuples.
+ */
 #ifndef TEMPLATE
 #define TEMPLATE
 #ifdef T 

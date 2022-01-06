@@ -1,0 +1,18 @@
+# Copyright (C) 31.08.2021 Aleksei Likhachev
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the KI General Public License version for more details.
+
+# Part of the code is in the early stages of development.
+kernel.h
+kernel.c
+
+# Outdated version of the code.
+klong_number.h
+ln_errno.h
+long_number.c
+
+# Obsolete signature and key. 
+sign
+xcm_public

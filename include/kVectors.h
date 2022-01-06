@@ -8,6 +8,9 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the KI General Public License version for
 */
 //----------------------------------------------------------------------------------------------------
 
+/**
+ Deploying metacode for different types.
+ */
 
 #ifndef __VEC_TEMPLATES_H_
 #define __VEC_TEMPLATES_H_

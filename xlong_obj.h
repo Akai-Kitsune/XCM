@@ -13,8 +13,8 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.3.0
-// last version id = 8991778aa03f2e429ecd6ec91594864ebaf42bbb
+// Version 0.5.2
+// last version id = fe40b391313d71fac94889fc86e249ad7f07bf86
 
 #ifndef __XLONG_OBJECT_H__
 #define __XLONG_OBJECT_H__
@@ -66,7 +66,8 @@
 #   define SUBDEBUGOFF
 #   define SMULINTDEBUGOFF
 #   define SMULDEBUGOFF
-#   define SDIVDEBUG
+#   define SDIVDEBUGOFF
+#   define EGCDDEBUG
 #endif
 
 #ifndef _XLN_PRINT_ERROR
@@ -83,7 +84,6 @@
 #   include <stdint.h>
     // For string, memcpy, memmove.
 #   include <string.h>
-#   include "include/Vectors.h"
 #   ifdef _XLN_INCLUDE_ERRNO
         // For math function
 #       include <math.h>
@@ -93,7 +93,7 @@
 #   endif
 
 #ifdef __XLN_INCLUDE_VECTORS
-
+#   include "include/Vectors.h"
 #endif
 
 #endif
@@ -211,6 +211,12 @@ void xln_print_r(xln* obj);
 xln* xln_sum(xln* result, xln* left, xln* right);
 
 /**
+ This function is a safe wrapper for xln_sum, in case its operands can be negative.
+ It takes three pointers: result, left and right operands, respectively. If the pointer to the result is zero, it returns NULL.
+ */
+xln* xln_ssum(xln* result, xln* left, xln* right);
+
+/**
  This function subtracts one number from another with a sign. If no memory has been allocated for
  the resulting
  number, it is allocated and returns the result or NULL in case of an error.
@@ -218,6 +224,12 @@ xln* xln_sum(xln* result, xln* left, xln* right);
  -The first argument is for the pointer to the result, the other two for the numbers, respectively.
  */
 xln* xln_sub(xln* result, xln* left, xln* right);
+
+/**
+ This function is a safe wrapper for xln_sub, in case its operands can be negative.
+ It takes three pointers: result, left and right operands, respectively. If the pointer to the result is zero, it returns NULL.
+ */
+xln* xln_ssub(xln* result, xln* left, xln* right);
 
 /**
  #A function for multiplying a large number by a small number smaller than the base of the system.
@@ -290,7 +302,7 @@ uint32_t xln_gcdInt(xln*left, uint32_t right);
 /**
  Function for finding the greatest common divisor of two numbers when the right number is less than the base of the system and two numbers such that left*x + right*y = gcd(left, right)
  */
-void** xln_egcdInt(xln*left, uint32_t right);
+void** xln_egcd(xln*left, xln* right);
 
 /**
  Algorithm for finding the greatest common divisor of two numbers, for two numbers of multiple precision.
@@ -360,6 +372,8 @@ lnbool xln_less(xln* left, xln* right);
 void test_sum(void);
 
 void test(void);
+
+void test_egcd(void);
 
 //----------------------------------------------------------------------------------------
 

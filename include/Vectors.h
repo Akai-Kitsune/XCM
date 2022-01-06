@@ -68,6 +68,9 @@ typedef enum __vector_error
 
 #endif // __C_VECTORS_H__
 
+/**
+ Metacode for C polymorphism implementation for working with data vectors and tuples.
+ */
 #ifndef TEMPLATE
 #define TEMPLATE
 #ifdef T
