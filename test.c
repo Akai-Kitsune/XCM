@@ -9,6 +9,9 @@
 #include "include/kVectors.h"
 
 int main(void){
-    test_egcd();
+    //test_div();
+    test_inverse("587597298579", "113");
+    //test_large_number();
+    //test_egcd("587597298579", "117");
     return 0;
 }

@@ -13,8 +13,9 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.5.2
-// last version id = fe40b391313d71fac94889fc86e249ad7f07bf86
+// Version 0.5.5
+
+// last version id = 00306be9e0e1ff0203436859a7893b1b220a5eef
 
 #ifndef __XLONG_OBJECT_H__
 #define __XLONG_OBJECT_H__
@@ -67,7 +68,7 @@
 #   define SMULINTDEBUGOFF
 #   define SMULDEBUGOFF
 #   define SDIVDEBUGOFF
-#   define EGCDDEBUG
+#   define EGCDDEBUGoff
 #endif
 
 #ifndef _XLN_PRINT_ERROR
@@ -294,6 +295,10 @@ xln* xln_sdiv(xln* result, xln* left, xln* right);
  */
 xln* xln_smod(xln* result, xln* left, xln* right);
 
+//----------------------------------------------------------------------------------------
+
+// ALGORITHM
+//----------------------------------------------------------------------------------------
 /**
  Algorithm for finding the greatest common divisor of two numbers when the right-hand one is less than the base of the system.
  */
@@ -310,6 +315,11 @@ void** xln_egcd(xln*left, xln* right);
  -The first argument is for the pointer to the result, the other two for the numbers, respectively.
  */
 xln* xln_gcd(xln* gcd, xln*left, xln* right);
+
+/**
+ (left*result) mod right == 1
+ */
+xln* xln_inverseOf(xln* result, xln* left, xln* right);
 
 //----------------------------------------------------------------------------------------
 
@@ -369,11 +379,15 @@ lnbool xln_less(xln* left, xln* right);
 // TEST
 //----------------------------------------------------------------------------------------
 
-void test_sum(void);
+void test_large_number(void);
 
 void test(void);
 
-void test_egcd(void);
+void test_egcd(const char *str1, const char *str2);
+
+void test_div(const char *str1, const char *str2);
+
+void test_inverse(const char *str1, const char *str2);
 
 //----------------------------------------------------------------------------------------
 

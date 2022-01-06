@@ -13,6 +13,7 @@
 
 
 #include <stdint.h>
+
 int16_t ln_errno;
 
 #endif //__LONG_NUMBER_ERRNO_H__

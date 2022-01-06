@@ -13,9 +13,9 @@
 //  xlong_obj.h
 //  Xenon CM
 
-// Version 0.5.2
+// Version 0.5.5
 
-// last version id = fe40b391313d71fac94889fc86e249ad7f07bf86
+// last version id = 00306be9e0e1ff0203436859a7893b1b220a5eef
 
 #include "xlong_obj.h"
 
@@ -84,7 +84,7 @@ void xln_copy(xln* left, xln* right){
     if(left != NULL && right != NULL){
         left->_current = right->_current; left->_sign = right->_sign;
         left->_sign = right->_sign;
-        if(left->_size < right->_size){
+        if(left->_size != right->_size){
             left = xln_realloc(left, right->_size);
         }
         
@@ -308,7 +308,7 @@ void xln_printr(xln* obj){
 xln* xln_sum(xln* result, xln* left, xln* right){
     if(left != NULL && right != NULL){
         
-        if(left->_size <= right->_size){
+        if(left->_current <= right->_current){
             uint32_t i = 0;
             uint32_t carry = 0;
             if(result == NULL){
@@ -404,6 +404,10 @@ xln* xln_sub(xln* result, xln* left, xln* right){
             
             left->_current = right->_current = i+1;
         }
+        else if(left->_current < right->_current){
+            result->_sign = -1;
+            return xln_sub(result, right, left);
+        }
         
         for(i = 0; i < right->_current; ++i){
             carry = (int64_t)(left->_mem[i] - right->_mem[i] - carry);
@@ -419,6 +423,7 @@ xln* xln_sub(xln* result, xln* left, xln* right){
         
         result->_current = i;
         result->_mem[i] = (uint32_t)carry;
+    
         
         return xln_normalize(result);
     }
@@ -438,7 +443,7 @@ xln* xln_ssub(xln* result, xln* left, xln* right){
         if(left->_sign == -1){
             // -a -(-b) = b - a
             if(right->_sign == -1){
-                result->_sign = -1;
+                printf("HERE\n");
                 return xln_sub(result, right, left);
             } // -a - b
             else{
@@ -453,6 +458,9 @@ xln* xln_ssub(xln* result, xln* left, xln* right){
                 return xln_sum(result, left, right);
             }
             else{ // a - b
+                if(xln_less(left, right) == LN_TRUE){
+                    result->_sign = -1;
+                }
                 return xln_sub(result, left, right);
             }
         }
@@ -613,7 +621,7 @@ uint32_t xln_smod_int(xln* left, uint32_t right){
             return 0;
         }
         
-        uint32_t carry = 0;
+        int32_t carry = 0;
         uint64_t current;
         for(int32_t i = (int32_t)left->_current-1; i >= 0; --i){
             current = left->_mem[i] + (carry*1ll <<_XLN_SHIFT);
@@ -788,6 +796,7 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
         // Free tmp memory
         xln_free(tr); xln_free(bl); xln_free(br);
         
+        result->_sign = left->_sign * right->_sign;
         result->_current = n+m;
         return xln_normalize(result);
     }
@@ -805,6 +814,10 @@ xln* xln_sdiv(xln* result, xln *left, xln *right){
  */
 xln* xln_smod(xln* result, xln* left, xln* right){
     if(left != NULL && right != NULL){
+        
+        if(left->_sign == -1){
+            xln_ssum(left, left, right);
+        }
         
         if(right->_current == 1){
             result->_current = 1;
@@ -976,7 +989,10 @@ xln* xln_smod(xln* result, xln* left, xln* right){
         return NULL;
     }
 }
+//----------------------------------------------------------------------------------------
 
+// ALGORITHM
+//----------------------------------------------------------------------------------------
 /*
  Extended_enclidean_algoritm for right < base
  */
@@ -1013,18 +1029,19 @@ void** xln_egcd(xln*left, xln* right){
         
         xln *u1 = xln_alloc(left->_size), *u2 = xln_alloc(left->_size), *u3 = xln_alloc(left->_size);
         xln *v1 = xln_alloc(left->_size), *v2 = xln_alloc(left->_size), *v3 = xln_alloc(right->_size);
-        xln *t1 = xln_alloc(left->_size), *t2 = xln_alloc(left->_size), *t3 = xln_alloc(right->_size);
+        xln *t1 = xln_alloc(left->_size), *t2 = xln_alloc(left->_size), *t3 = xln_alloc(left->_size);
         xln *q = xln_alloc(left->_size), *n = xln_alloc(left->_size);
         
         xln_init_string(u1, "1"); xln_init_string(u2, "0");
         xln_init_string(v1, "0"); xln_init_string(v2, "1");
-        
+
         xln_copy(u3, left); xln_copy(v3, right);
-        
+
         while(v3->_current >= 1 && v3->_mem[0] != 0){
             
            // xln_print(q);
 #ifdef EGCDDEBUG
+        
             xln_print(u1);
             xln_print(u2);
             xln_print(u3);
@@ -1032,11 +1049,13 @@ void** xln_egcd(xln*left, xln* right){
             xln_print(v1);
             xln_print(v2);
             xln_print(v3);
-#endif
-            printf("END ITERATION\n");
             
+            xln_print(n);
+            
+            printf("END ITERATION\n");
+#endif
             xln_sdiv(q, u3, v3);
-
+            
             xln_smul(n, v1, q);
             xln_ssub(t1, u1, n);
 
@@ -1063,8 +1082,6 @@ void** xln_egcd(xln*left, xln* right){
         xln_free(v1); xln_free(v2); xln_free(v3);
         xln_free(t1); xln_free(t2); xln_free(t3);
         xln_free(q); xln_free(n);
-        
-        
         
         return ptr;
     }
@@ -1117,6 +1134,33 @@ xln* xln_gcd(xln* res, xln*left, xln* right){
         return NULL;
     }
 }
+
+/**
+ (left*result) mod right == 1
+ */
+xln* xln_inverseOf(xln* result, xln* left, xln* right){
+    if(result != NULL && left != NULL && right != NULL){
+        
+        void **ptr = xln_egcd(left, right);
+        //xln_print(ptr[2]);
+        if((((xln*)(*(ptr+2)))->_current > 1) || ((((xln*)(*(ptr+2)))->_current == 1) && ((((xln*)(*(ptr+2)))->_mem[0] != 1)))){
+            result->_current = 1;
+            result->_mem[0] = 0;
+        }
+        else{
+            xln_smod(result, ptr[0], right);
+        }
+        
+        free(ptr);
+        
+        return result;
+    }
+    else{
+        error("ATANE", -4);
+        return NULL;
+    }
+}
+
 //----------------------------------------------------------------------------------------
 
 
@@ -1260,15 +1304,15 @@ void test_gcdInt(void){
     xln_free(obj);
 }
 
-void test_gcd(void){
+void test_gcd(const char *str1, const char *str2){
     xln* obj = xln_alloc(30);
     xln* obj2 = xln_alloc(30);
     xln* res = xln_alloc(61);
-    xln_init_string(obj,  "9085729004256841718308438420015608007687001344443112760818356862794610647930864113878808725615792656835384509495872239647213856410356729267494460946312905410849");
+    xln_init_string(obj,  "str1");
 
 
 
-    xln_init_string(obj2, "1108899372780783641306111715875094966436017167649879524402769841278887580501366697712424694256005093589248451503068397608001");
+    xln_init_string(obj2, "str2");
     xln_gcd(res, obj, obj2);
     xln_convert_reverse(res);
     xln_printr(res);
@@ -1304,16 +1348,34 @@ void test(void){
     xln_free(obj);
 }
 
-void test_egcd(void){
-    xln* obj = xln_alloc(6);
-    xln* obj2 = xln_alloc(4);
-    
-    xln_init_string(obj,  "58247982750105740");
+//280232076 479
+void test_div(const char *str1, const char *str2){
+    xln* obj = xln_alloc(10);
+    xln* obj2 = xln_alloc(10);
+    xln* res = xln_alloc(10);
+    xln_init_string(obj,  str1);
+    xln_init_string(obj2, str2);
+    xln_sub(res, obj2, obj);
 
-    xln_init_string(obj2, "0");
+    xln_convert_reverse(res);
+    
+    xln_printr(res);
+    
+    xln_free(obj);
+    xln_free(obj2);
+    xln_free(res);
+}
+
+void test_egcd(const char *str1, const char *str2){
+    xln* obj = xln_alloc(10);
+    xln* obj2 = xln_alloc(10);
+    // 73 1065361183 236911421
+    xln_init_string(obj,  str1);
+
+    xln_init_string(obj2, str2);
     
     void **ptr = xln_egcd(obj, obj2);
-
+    
     xln_convert_reverse(ptr[0]);
     xln_convert_reverse(ptr[1]);
     xln_convert_reverse(ptr[2]);
@@ -1332,6 +1394,23 @@ void test_egcd(void){
 
 }
 
+void test_inverse(const char *str1, const char *str2){
+    xln* obj = xln_alloc(10);
+    xln* obj2 = xln_alloc(10);
+    xln* result = xln_alloc(10);
+    
+    xln_init_string(obj,  str1);
+
+    xln_init_string(obj2, str2);
+    
+    xln_inverseOf(result, obj, obj2);
+    
+    xln_convert_reverse(result);
+    xln_printr(result);
+    
+    xln_free(obj);
+    xln_free(obj2);
+}
 
 //----------------------------------------------------------------------------------------
 
